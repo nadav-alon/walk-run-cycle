@@ -246,3 +246,15 @@ function initSettings() {
 
 initSettings();
 updateUI();
+
+// Register Service Worker for PWA functionality
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    // Using root-relative path which Vite will resolve correctly based on 'base' config
+    navigator.serviceWorker.register('./sw.js').then(reg => {
+      console.log('SW registered');
+    }).catch(err => {
+      console.log('SW registration failed', err);
+    });
+  });
+}

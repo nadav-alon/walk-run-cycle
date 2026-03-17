@@ -1,8 +1,8 @@
-const CACHE_NAME = 'stryde-v2';
+const CACHE_NAME = 'stryde-v3';
 const ASSETS_TO_CACHE = [
-  '/',
-  '/index.html',
-  '/manifest.json'
+  './',
+  './index.html',
+  './manifest.json'
 ];
 
 self.addEventListener('install', (event) => {
