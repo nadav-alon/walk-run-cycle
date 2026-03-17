@@ -301,3 +301,22 @@ footer {
   height: 20px;
   fill: currentColor;
 }
+
+.haptic-check {
+  display: inline-block;
+  margin-bottom: 0.5rem;
+  padding: 0.25rem 0.75rem;
+  border: 1px solid var(--glass-border);
+  border-radius: 0.5rem;
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.haptic-check:active {
+  background: rgba(255, 255, 255, 0.1);
+  color: white;
+}

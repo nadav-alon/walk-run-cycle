@@ -20,6 +20,31 @@ const MODES_CONFIG = [
   { id: 'CYCLE', label: 'Cycling', color: 'var(--cycle-color)', class: 'mode-cycle', input: cycleTimeInput, storageKey: 'stryde_cycle_time', default: 3 }
 ];
 
+// Audio Context for beeps
+let audioCtx = null;
+function playBeep(pulses = 1) {
+  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  
+  const playOne = (time) => {
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(880, time); // A5 note
+    gain.gain.setValueAtTime(0, time);
+    gain.gain.linearRampToValueAtTime(0.1, time + 0.01);
+    gain.gain.exponentialRampToValueAtTime(0.0001, time + 0.2);
+    osc.connect(gain);
+    gain.connect(audioCtx.destination);
+    osc.start(time);
+    osc.stop(time + 0.2);
+  };
+
+  const now = audioCtx.currentTime;
+  for (let i = 0; i < pulses; i++) {
+    playOne(now + (i * 0.3));
+  }
+}
+
 // State Variables
 let timerState = 'READY'; // READY, RUNNING, PAUSED
 let currentModeIndex = 0;
@@ -60,15 +85,21 @@ function updateUI() {
 
 function triggerAlert() {
   const mode = activeModes[currentModeIndex];
-  if ("vibrate" in navigator && mode) {
-    // 1 pulse for walk, 2 for cycle, 3 for run
+  if (!mode) return;
+
+  // Haptic Alert
+  if ("vibrate" in navigator) {
     let pulses = [300];
     if (mode.id === 'CYCLE') pulses = [200, 100, 200];
     if (mode.id === 'RUN') pulses = [200, 100, 200, 100, 200];
     navigator.vibrate(pulses);
   }
+
+  // Sound Alert Fallback
+  const beepCount = mode.id === 'RUN' ? 3 : (mode.id === 'CYCLE' ? 2 : 1);
+  playBeep(beepCount);
   
-  console.log(`Alert: Switched to ${mode?.id}`);
+  console.log(`Alert: Switched to ${mode.id}`);
 }
 
 function switchMode() {
@@ -114,6 +145,11 @@ function startSession() {
     
     intervalId = setInterval(tick, 1000);
     requestWakeLock();
+    
+    // Resume Audio Context on user gesture
+    if (audioCtx && audioCtx.state === 'suspended') {
+      audioCtx.resume();
+    }
   }
   updateUI();
 }
@@ -140,10 +176,22 @@ function resetSession() {
   updateUI();
 }
 
+const hapticCheckBtn = document.getElementById('haptic-check');
+
 // Event Listeners
 startBtn.addEventListener('click', startSession);
 stopBtn.addEventListener('click', stopSession);
 resetBtn.addEventListener('click', resetSession);
+
+hapticCheckBtn.addEventListener('click', () => {
+  if ("vibrate" in navigator) {
+    navigator.vibrate([200, 100, 200]);
+    console.log("Test vibration triggered");
+  } else {
+    alert("Vibration API not supported on this device/browser.");
+  }
+  playBeep(2);
+});
 
 // Wake Lock API to keep screen on
 let wakeLock = null;
