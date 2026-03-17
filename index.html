@@ -34,23 +34,40 @@
           <div class="setting-card">
             <span class="setting-label">Run</span>
             <div class="setting-input-wrapper">
-              <input type="number" id="run-time" value="5" min="1" max="60">
+              <input type="number" id="run-min" value="5" min="0" max="60">
               <span class="setting-unit">m</span>
+              <input type="number" id="run-sec" value="0" min="0" max="59">
+              <span class="setting-unit">s</span>
             </div>
           </div>
           <div class="setting-card">
             <span class="setting-label">Walk</span>
             <div class="setting-input-wrapper">
-              <input type="number" id="walk-time" value="2" min="1" max="60">
+              <input type="number" id="walk-min" value="2" min="0" max="60">
               <span class="setting-unit">m</span>
+              <input type="number" id="walk-sec" value="0" min="0" max="59">
+              <span class="setting-unit">s</span>
             </div>
           </div>
           <div class="setting-card">
             <span class="setting-label">Cycle</span>
             <div class="setting-input-wrapper">
-              <input type="number" id="cycle-time" value="3" min="1" max="60">
+              <input type="number" id="cycle-min" value="3" min="0" max="60">
               <span class="setting-unit">m</span>
+              <input type="number" id="cycle-sec" value="0" min="0" max="59">
+              <span class="setting-unit">s</span>
             </div>
+          </div>
+        </div>
+
+        <div id="pwa-modal" class="modal hidden">
+          <div class="modal-content">
+            <h3>Install Stryde</h3>
+            <div class="install-steps">
+              <p><strong>iOS:</strong> Tap <img src="https://img.icons8.com/ios/50/ffffff/share.png" width="16" style="vertical-align:middle"> then "Add to Home Screen"</p>
+              <p><strong>Android/Chrome:</strong> Tap the Menu ⋮ then "Install App"</p>
+            </div>
+            <button class="btn btn-primary" id="close-modal">Got it</button>
           </div>
         </div>
 
@@ -63,6 +80,9 @@
           </button>
           <button id="reset-btn" class="btn btn-outline">
             <span>Reset Session</span>
+          </button>
+          <button id="pwa-btn" class="btn btn-outline">
+            <span>How to Install PWA</span>
           </button>
         </div>
       </main>

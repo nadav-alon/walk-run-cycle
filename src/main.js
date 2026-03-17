@@ -4,9 +4,12 @@ import './style.css';
 const timerDisplay = document.getElementById('timer');
 const currentModeBadge = document.getElementById('current-mode');
 const progressCircle = document.getElementById('progress-circle');
-const runTimeInput = document.getElementById('run-time');
-const walkTimeInput = document.getElementById('walk-time');
-const cycleTimeInput = document.getElementById('cycle-time');
+const runMinInput = document.getElementById('run-min');
+const runSecInput = document.getElementById('run-sec');
+const walkMinInput = document.getElementById('walk-min');
+const walkSecInput = document.getElementById('walk-sec');
+const cycleMinInput = document.getElementById('cycle-min');
+const cycleSecInput = document.getElementById('cycle-sec');
 const startBtn = document.getElementById('start-btn');
 const stopBtn = document.getElementById('stop-btn');
 const resetBtn = document.getElementById('reset-btn');
@@ -15,9 +18,9 @@ const appContainer = document.getElementById('app');
 
 // State Variables
 const MODES_CONFIG = [
-  { id: 'RUN', label: 'Running', color: 'var(--run-color)', class: 'mode-run', input: runTimeInput, storageKey: 'stryde_run_time', default: 5 },
-  { id: 'WALK', label: 'Walking', color: 'var(--walk-color)', class: 'mode-walk', input: walkTimeInput, storageKey: 'stryde_walk_time', default: 2 },
-  { id: 'CYCLE', label: 'Cycling', color: 'var(--cycle-color)', class: 'mode-cycle', input: cycleTimeInput, storageKey: 'stryde_cycle_time', default: 3 }
+  { id: 'RUN', label: 'Running', class: 'mode-run', minInput: runMinInput, secInput: runSecInput, storageKeyMin: 'stryde_run_min', storageKeySec: 'stryde_run_sec' },
+  { id: 'WALK', label: 'Walking', class: 'mode-walk', minInput: walkMinInput, secInput: walkSecInput, storageKeyMin: 'stryde_walk_min', storageKeySec: 'stryde_walk_sec' },
+  { id: 'CYCLE', label: 'Cycling', class: 'mode-cycle', minInput: cycleMinInput, secInput: cycleSecInput, storageKeyMin: 'stryde_cycle_min', storageKeySec: 'stryde_cycle_sec' }
 ];
 
 // Audio Context for beeps
@@ -102,10 +105,12 @@ function triggerAlert() {
   console.log(`Alert: Switched to ${mode.id}`);
 }
 
+const getDuration = (mode) => (parseInt(mode.minInput.value) || 0) * 60 + (parseInt(mode.secInput.value) || 0);
+
 function switchMode() {
   currentModeIndex = (currentModeIndex + 1) % activeModes.length;
   const mode = activeModes[currentModeIndex];
-  totalTimeForMode = parseInt(mode.input.value) * 60;
+  totalTimeForMode = getDuration(mode);
   timeLeft = totalTimeForMode;
   
   triggerAlert();
@@ -125,16 +130,16 @@ function startSession() {
   if (timerState === 'READY' || timerState === 'PAUSED') {
     if (timerState === 'READY') {
       // Refresh active modes based on current inputs (skip 0)
-      activeModes = MODES_CONFIG.filter(m => parseInt(m.input.value) > 0);
+      activeModes = MODES_CONFIG.filter(m => getDuration(m) > 0);
       
       if (activeModes.length === 0) {
-        alert("Please set at least one mode to more than 0 minutes.");
+        alert("Please set at least one mode to more than 0.");
         return;
       }
 
       currentModeIndex = 0;
       const mode = activeModes[currentModeIndex];
-      totalTimeForMode = parseInt(mode.input.value) * 60;
+      totalTimeForMode = getDuration(mode);
       timeLeft = totalTimeForMode;
       triggerAlert();
     }
@@ -177,11 +182,23 @@ function resetSession() {
 }
 
 const hapticCheckBtn = document.getElementById('haptic-check');
+const pwaBtn = document.getElementById('pwa-btn');
+const pwaModal = document.getElementById('pwa-modal');
+const closeModal = document.getElementById('close-modal');
 
 // Event Listeners
 startBtn.addEventListener('click', startSession);
 stopBtn.addEventListener('click', stopSession);
 resetBtn.addEventListener('click', resetSession);
+
+timerUI.addEventListener('click', () => {
+  if (timerState === 'RUNNING') {
+    switchMode();
+  }
+});
+
+pwaBtn.addEventListener('click', () => pwaModal.classList.remove('hidden'));
+closeModal.addEventListener('click', () => pwaModal.classList.add('hidden'));
 
 hapticCheckBtn.addEventListener('click', () => {
   if ("vibrate" in navigator) {
@@ -215,14 +232,15 @@ function releaseWakeLock() {
 // Initialize Settings and UI
 function initSettings() {
   MODES_CONFIG.forEach(mode => {
-    const saved = localStorage.getItem(mode.storageKey);
-    if (saved !== null) {
-      mode.input.value = saved;
-    }
+    // Load Mins
+    const savedMin = localStorage.getItem(mode.storageKeyMin);
+    if (savedMin !== null) mode.minInput.value = savedMin;
+    mode.minInput.addEventListener('change', () => localStorage.setItem(mode.storageKeyMin, mode.minInput.value));
 
-    mode.input.addEventListener('change', () => {
-      localStorage.setItem(mode.storageKey, mode.input.value);
-    });
+    // Load Secs
+    const savedSec = localStorage.getItem(mode.storageKeySec);
+    if (savedSec !== null) mode.secInput.value = savedSec;
+    mode.secInput.addEventListener('change', () => localStorage.setItem(mode.storageKeySec, mode.secInput.value));
   });
 }
 
