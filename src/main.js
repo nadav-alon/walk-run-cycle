@@ -14,13 +14,16 @@ const timerUI = document.getElementById('timer-ui');
 const appContainer = document.getElementById('app');
 
 // State Variables
+const MODES_CONFIG = [
+  { id: 'RUN', label: 'Running', color: 'var(--run-color)', class: 'mode-run', input: runTimeInput, storageKey: 'stryde_run_time', default: 5 },
+  { id: 'WALK', label: 'Walking', color: 'var(--walk-color)', class: 'mode-walk', input: walkTimeInput, storageKey: 'stryde_walk_time', default: 2 },
+  { id: 'CYCLE', label: 'Cycling', color: 'var(--cycle-color)', class: 'mode-cycle', input: cycleTimeInput, storageKey: 'stryde_cycle_time', default: 3 }
+];
+
+// State Variables
 let timerState = 'READY'; // READY, RUNNING, PAUSED
 let currentModeIndex = 0;
-const MODES = [
-  { id: 'RUN', label: 'Running', color: 'var(--run-color)', class: 'mode-run', input: runTimeInput },
-  { id: 'WALK', label: 'Walking', color: 'var(--walk-color)', class: 'mode-walk', input: walkTimeInput },
-  { id: 'CYCLE', label: 'Cycling', color: 'var(--cycle-color)', class: 'mode-cycle', input: cycleTimeInput }
-];
+let activeModes = [];
 
 let timeLeft = 0;
 let totalTimeForMode = 0;
@@ -43,13 +46,12 @@ function updateUI() {
   const offset = CIRCUMFERENCE * (1 - progressPercent);
   progressCircle.style.strokeDashoffset = isNaN(offset) ? 0 : offset;
 
-  const mode = MODES[currentModeIndex];
-
   if (timerState === 'READY') {
     currentModeBadge.textContent = 'Ready';
     timerUI.className = 'timer-container';
     appContainer.classList.remove('running');
   } else {
+    const mode = activeModes[currentModeIndex];
     currentModeBadge.textContent = mode.label;
     timerUI.className = `timer-container ${mode.class}`;
     appContainer.classList.add('running');
@@ -57,20 +59,21 @@ function updateUI() {
 }
 
 function triggerAlert() {
-  const mode = MODES[currentModeIndex];
-  if ("vibrate" in navigator) {
+  const mode = activeModes[currentModeIndex];
+  if ("vibrate" in navigator && mode) {
     // 1 pulse for walk, 2 for cycle, 3 for run
-    const pulses = currentModeIndex === 1 ? [300] : (currentModeIndex === 2 ? [200, 100, 200] : [200, 100, 200, 100, 200]);
+    let pulses = [300];
+    if (mode.id === 'CYCLE') pulses = [200, 100, 200];
+    if (mode.id === 'RUN') pulses = [200, 100, 200, 100, 200];
     navigator.vibrate(pulses);
   }
   
-  // Play a subtle beep if possible (future enhancement)
-  console.log(`Alert: Switched to ${mode.id}`);
+  console.log(`Alert: Switched to ${mode?.id}`);
 }
 
 function switchMode() {
-  currentModeIndex = (currentModeIndex + 1) % MODES.length;
-  const mode = MODES[currentModeIndex];
+  currentModeIndex = (currentModeIndex + 1) % activeModes.length;
+  const mode = activeModes[currentModeIndex];
   totalTimeForMode = parseInt(mode.input.value) * 60;
   timeLeft = totalTimeForMode;
   
@@ -90,8 +93,16 @@ function tick() {
 function startSession() {
   if (timerState === 'READY' || timerState === 'PAUSED') {
     if (timerState === 'READY') {
+      // Refresh active modes based on current inputs (skip 0)
+      activeModes = MODES_CONFIG.filter(m => parseInt(m.input.value) > 0);
+      
+      if (activeModes.length === 0) {
+        alert("Please set at least one mode to more than 0 minutes.");
+        return;
+      }
+
       currentModeIndex = 0;
-      const mode = MODES[currentModeIndex];
+      const mode = activeModes[currentModeIndex];
       totalTimeForMode = parseInt(mode.input.value) * 60;
       timeLeft = totalTimeForMode;
       triggerAlert();
@@ -153,16 +164,19 @@ function releaseWakeLock() {
   }
 }
 
-// Register Service Worker for PWA functionality
-if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/sw.js').then(reg => {
-      console.log('SW registered');
-    }).catch(err => {
-      console.log('SW registration failed', err);
+// Initialize Settings and UI
+function initSettings() {
+  MODES_CONFIG.forEach(mode => {
+    const saved = localStorage.getItem(mode.storageKey);
+    if (saved !== null) {
+      mode.input.value = saved;
+    }
+
+    mode.input.addEventListener('change', () => {
+      localStorage.setItem(mode.storageKey, mode.input.value);
     });
   });
 }
 
-// Initialize UI
+initSettings();
 updateUI();
