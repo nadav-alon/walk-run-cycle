@@ -2,52 +2,75 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Stryde | Run-Walk Tracker</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <title>Stryde | Pro Interval Trainer</title>
     <link rel="manifest" href="manifest.json">
-    <meta name="theme-color" content="#0F172A">
+    <meta name="theme-color" content="#020617">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   </head>
   <body>
     <div id="app">
       <header>
         <h1>Stryde</h1>
-        <p class="subtitle">Interval Trainer</p>
+        <p class="subtitle">Peak Performance</p>
       </header>
 
       <main>
-        <div class="timer-card">
-          <div class="status-badge" id="current-mode">Ready</div>
-          <div class="timer-display" id="timer">00:00</div>
-          <div class="progress-container">
-            <div class="progress-bar" id="progress"></div>
+        <div class="timer-container" id="timer-ui">
+          <svg class="timer-svg" viewBox="0 0 100 100">
+            <circle class="timer-track" cx="50" cy="50" r="45"></circle>
+            <circle class="timer-progress" id="progress-circle" cx="50" cy="50" r="45" 
+                    stroke-dasharray="282.7" stroke-dashoffset="0"></circle>
+          </svg>
+          
+          <div class="timer-content">
+            <div class="status-badge" id="current-mode">Ready</div>
+            <div class="timer-display" id="timer">00:00</div>
           </div>
         </div>
 
-        <div class="settings-grid">
-          <div class="setting-item">
-            <label>Run Time (min)</label>
-            <input type="number" id="run-time" value="5" min="1" max="60">
+        <div class="settings-panel">
+          <div class="setting-card">
+            <span class="setting-label">Run</span>
+            <div class="setting-input-wrapper">
+              <input type="number" id="run-time" value="5" min="1" max="60">
+              <span class="setting-unit">m</span>
+            </div>
           </div>
-          <div class="setting-item">
-            <label>Walk Time (min)</label>
-            <input type="number" id="walk-time" value="2" min="1" max="60">
+          <div class="setting-card">
+            <span class="setting-label">Walk</span>
+            <div class="setting-input-wrapper">
+              <input type="number" id="walk-time" value="2" min="1" max="60">
+              <span class="setting-unit">m</span>
+            </div>
+          </div>
+          <div class="setting-card">
+            <span class="setting-label">Cycle</span>
+            <div class="setting-input-wrapper">
+              <input type="number" id="cycle-time" value="3" min="1" max="60">
+              <span class="setting-unit">m</span>
+            </div>
           </div>
         </div>
 
-        <div class="controls">
-          <button id="start-btn" class="primary-btn">Start Session</button>
-          <button id="stop-btn" class="secondary-btn hidden">Stop</button>
-          <button id="reset-btn" class="outline-btn">Reset</button>
+        <div class="controls-stack">
+          <button id="start-btn" class="btn btn-primary">
+            <span>Start Training</span>
+          </button>
+          <button id="stop-btn" class="btn btn-stop hidden">
+            <span>Pause</span>
+          </button>
+          <button id="reset-btn" class="btn btn-outline">
+            <span>Reset Session</span>
+          </button>
         </div>
       </main>
 
       <footer>
-        <p>Silent Vibrating Alerts Enabled</p>
+        <p id="haptic-status">Vibrations Active</p>
       </footer>
     </div>
-    <script type="module" src="src/main.js"></script>
+    <script type="module" src="/src/main.js"></script>
   </body>
 </html>

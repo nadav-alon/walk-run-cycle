@@ -3,24 +3,31 @@ import './style.css';
 // DOM Elements
 const timerDisplay = document.getElementById('timer');
 const currentModeBadge = document.getElementById('current-mode');
-const progressBar = document.getElementById('progress');
+const progressCircle = document.getElementById('progress-circle');
 const runTimeInput = document.getElementById('run-time');
 const walkTimeInput = document.getElementById('walk-time');
+const cycleTimeInput = document.getElementById('cycle-time');
 const startBtn = document.getElementById('start-btn');
 const stopBtn = document.getElementById('stop-btn');
 const resetBtn = document.getElementById('reset-btn');
+const timerUI = document.getElementById('timer-ui');
 const appContainer = document.getElementById('app');
 
 // State Variables
 let timerState = 'READY'; // READY, RUNNING, PAUSED
-let currentMode = 'RUN'; // RUN, WALK
+let currentModeIndex = 0;
+const MODES = [
+  { id: 'RUN', label: 'Running', color: 'var(--run-color)', class: 'mode-run', input: runTimeInput },
+  { id: 'WALK', label: 'Walking', color: 'var(--walk-color)', class: 'mode-walk', input: walkTimeInput },
+  { id: 'CYCLE', label: 'Cycling', color: 'var(--cycle-color)', class: 'mode-cycle', input: cycleTimeInput }
+];
+
 let timeLeft = 0;
 let totalTimeForMode = 0;
 let intervalId = null;
 
-// Vibration Patterns
-const VIBRATE_RUN = [200, 100, 200]; // 2 pulses
-const VIBRATE_WALK = [300]; // 1 longer pulse
+// Circle Circumference (2 * PI * r) where r=45
+const CIRCUMFERENCE = 2 * Math.PI * 45;
 
 function formatTime(seconds) {
   const m = Math.floor(seconds / 60);
@@ -30,68 +37,83 @@ function formatTime(seconds) {
 
 function updateUI() {
   timerDisplay.textContent = formatTime(timeLeft);
-  const progressPercent = ((totalTimeForMode - timeLeft) / totalTimeForMode) * 100;
-  progressBar.style.width = `${progressPercent}%`;
+  
+  // Update Circular Progress
+  const progressPercent = totalTimeForMode > 0 ? (timeLeft / totalTimeForMode) : 0;
+  const offset = CIRCUMFERENCE * (1 - progressPercent);
+  progressCircle.style.strokeDashoffset = isNaN(offset) ? 0 : offset;
 
-  // Update Badge and App Classes
+  const mode = MODES[currentModeIndex];
+
   if (timerState === 'READY') {
     currentModeBadge.textContent = 'Ready';
-    currentModeBadge.className = 'status-badge';
-    progressBar.style.backgroundColor = 'var(--accent-color)';
+    timerUI.className = 'timer-container';
     appContainer.classList.remove('running');
   } else {
-    currentModeBadge.textContent = currentMode === 'RUN' ? 'Running' : 'Walking';
-    currentModeBadge.className = `status-badge ${currentMode === 'RUN' ? 'status-run' : 'status-walk'}`;
-    progressBar.style.backgroundColor = currentMode === 'RUN' ? 'var(--run-color)' : 'var(--walk-color)';
+    currentModeBadge.textContent = mode.label;
+    timerUI.className = `timer-container ${mode.class}`;
     appContainer.classList.add('running');
   }
 }
 
-function switchMode() {
-  currentMode = currentMode === 'RUN' ? 'WALK' : 'RUN';
-  totalTimeForMode = (currentMode === 'RUN' ? parseInt(runTimeInput.value) : parseInt(walkTimeInput.value)) * 60;
-  timeLeft = totalTimeForMode;
-  
-  // Vibration Alert
+function triggerAlert() {
+  const mode = MODES[currentModeIndex];
   if ("vibrate" in navigator) {
-    navigator.vibrate(currentMode === 'RUN' ? VIBRATE_RUN : VIBRATE_WALK);
+    // 1 pulse for walk, 2 for cycle, 3 for run
+    const pulses = currentModeIndex === 1 ? [300] : (currentModeIndex === 2 ? [200, 100, 200] : [200, 100, 200, 100, 200]);
+    navigator.vibrate(pulses);
   }
   
-  console.log(`Switched to ${currentMode}. Pattern: ${currentMode === 'RUN' ? '2 pulses' : '1 pulse'}`);
+  // Play a subtle beep if possible (future enhancement)
+  console.log(`Alert: Switched to ${mode.id}`);
+}
+
+function switchMode() {
+  currentModeIndex = (currentModeIndex + 1) % MODES.length;
+  const mode = MODES[currentModeIndex];
+  totalTimeForMode = parseInt(mode.input.value) * 60;
+  timeLeft = totalTimeForMode;
+  
+  triggerAlert();
+  updateUI();
 }
 
 function tick() {
   if (timeLeft > 0) {
     timeLeft--;
+    updateUI();
   } else {
     switchMode();
   }
-  updateUI();
 }
 
 function startSession() {
-  if (timerState === 'READY') {
-    currentMode = 'RUN';
-    totalTimeForMode = parseInt(runTimeInput.value) * 60;
-    timeLeft = totalTimeForMode;
-    // Initial vibration for start
-    if ("vibrate" in navigator) navigator.vibrate(VIBRATE_RUN);
+  if (timerState === 'READY' || timerState === 'PAUSED') {
+    if (timerState === 'READY') {
+      currentModeIndex = 0;
+      const mode = MODES[currentModeIndex];
+      totalTimeForMode = parseInt(mode.input.value) * 60;
+      timeLeft = totalTimeForMode;
+      triggerAlert();
+    }
+    
+    timerState = 'RUNNING';
+    startBtn.classList.add('hidden');
+    stopBtn.classList.remove('hidden');
+    
+    intervalId = setInterval(tick, 1000);
+    requestWakeLock();
   }
-  
-  timerState = 'RUNNING';
-  startBtn.classList.add('hidden');
-  stopBtn.classList.remove('hidden');
-  
-  intervalId = setInterval(tick, 1000);
   updateUI();
 }
 
 function stopSession() {
   timerState = 'PAUSED';
   clearInterval(intervalId);
-  startBtn.textContent = 'Resume Session';
+  startBtn.querySelector('span').textContent = 'Resume Training';
   startBtn.classList.remove('hidden');
   stopBtn.classList.add('hidden');
+  releaseWakeLock();
 }
 
 function resetSession() {
@@ -99,10 +121,11 @@ function resetSession() {
   clearInterval(intervalId);
   timeLeft = 0;
   totalTimeForMode = 0;
-  currentMode = 'RUN';
-  startBtn.textContent = 'Start Session';
+  currentModeIndex = 0;
+  startBtn.querySelector('span').textContent = 'Start Training';
   startBtn.classList.remove('hidden');
   stopBtn.classList.add('hidden');
+  releaseWakeLock();
   updateUI();
 }
 
@@ -111,31 +134,35 @@ startBtn.addEventListener('click', startSession);
 stopBtn.addEventListener('click', stopSession);
 resetBtn.addEventListener('click', resetSession);
 
-// Handle Wake Lock (if supported) to prevent screen dimming/sleep
+// Wake Lock API to keep screen on
 let wakeLock = null;
 async function requestWakeLock() {
   try {
     if ('wakeLock' in navigator) {
       wakeLock = await navigator.wakeLock.request('screen');
-      console.log('Wake Lock acquired');
     }
   } catch (err) {
-    console.error(`${err.name}, ${err.message}`);
+    console.error(`WakeLock Error: ${err.message}`);
   }
 }
 
-startBtn.addEventListener('click', requestWakeLock);
+function releaseWakeLock() {
+  if (wakeLock !== null) {
+    wakeLock.release();
+    wakeLock = null;
+  }
+}
 
-// Register Service Worker
+// Register Service Worker for PWA functionality
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('sw.js').then(reg => {
-      console.log('SW registered:', reg);
+    navigator.serviceWorker.register('/sw.js').then(reg => {
+      console.log('SW registered');
     }).catch(err => {
-      console.log('SW registration failed:', err);
+      console.log('SW registration failed', err);
     });
   });
 }
 
-// Initialize
+// Initialize UI
 updateUI();
