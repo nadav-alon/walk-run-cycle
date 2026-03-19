@@ -1,4 +1,4 @@
-const CACHE_NAME = 'stryde-v3';
+const CACHE_NAME = 'stryde-v4';
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
@@ -39,5 +39,22 @@ self.addEventListener('fetch', (event) => {
         return response;
       })
       .catch(() => caches.match(event.request))
+  );
+});
+
+// Handle notification clicks to bring the app to the foreground
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  event.waitUntil(
+    clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
+      for (const client of clientList) {
+        if (client.url.includes('walk-run-cycle') && 'focus' in client) {
+          return client.focus();
+        }
+      }
+      if (clients.openWindow) {
+        return clients.openWindow('./');
+      }
+    })
   );
 });

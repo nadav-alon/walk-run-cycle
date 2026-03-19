@@ -1,5 +1,7 @@
 import './style.css';
 
+const APP_VERSION = '1.1.0';
+
 // DOM Elements
 const timerDisplay = document.getElementById('timer');
 const currentModeBadge = document.getElementById('current-mode');
@@ -15,6 +17,7 @@ const stopBtn = document.getElementById('stop-btn');
 const resetBtn = document.getElementById('reset-btn');
 const timerUI = document.getElementById('timer-ui');
 const appContainer = document.getElementById('app');
+const hapticStatus = document.getElementById('haptic-status');
 
 // State Variables
 const MODES_CONFIG = [
@@ -34,12 +37,12 @@ function playBeep(pulses = 1) {
     osc.type = 'sine';
     osc.frequency.setValueAtTime(880, time); // A5 note
     gain.gain.setValueAtTime(0, time);
-    gain.gain.linearRampToValueAtTime(0.1, time + 0.01);
-    gain.gain.exponentialRampToValueAtTime(0.0001, time + 0.2);
+    gain.gain.linearRampToValueAtTime(0.2, time + 0.01);
+    gain.gain.exponentialRampToValueAtTime(0.0001, time + 0.4);
     osc.connect(gain);
     gain.connect(audioCtx.destination);
     osc.start(time);
-    osc.stop(time + 0.2);
+    osc.stop(time + 0.4);
   };
 
   const now = audioCtx.currentTime;
@@ -56,6 +59,30 @@ let activeModes = [];
 let timeLeft = 0;
 let totalTimeForMode = 0;
 let intervalId = null;
+let modeStartTime = null;
+let keepAliveOsc = null;
+
+function startKeepAlive() {
+  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  if (keepAliveOsc) return;
+  
+  const silentGain = audioCtx.createGain();
+  silentGain.gain.setValueAtTime(0, audioCtx.currentTime);
+  const osc = audioCtx.createOscillator();
+  osc.connect(silentGain);
+  silentGain.connect(audioCtx.destination);
+  osc.start();
+  keepAliveOsc = osc;
+}
+
+function stopKeepAlive() {
+  if (keepAliveOsc) {
+    try {
+      keepAliveOsc.stop();
+    } catch(e) {}
+    keepAliveOsc = null;
+  }
+}
 
 // Circle Circumference (2 * PI * r) where r=45
 const CIRCUMFERENCE = 2 * Math.PI * 45;
@@ -76,29 +103,31 @@ function updateUI() {
 
   if (timerState === 'READY') {
     currentModeBadge.textContent = 'Ready';
+    hapticStatus.textContent = `V${APP_VERSION} | Ready`;
     timerUI.className = 'timer-container';
     appContainer.classList.remove('running');
   } else {
     const mode = activeModes[currentModeIndex];
     currentModeBadge.textContent = mode.label;
+    hapticStatus.textContent = `V${APP_VERSION} | Training`;
     timerUI.className = `timer-container ${mode.class}`;
     appContainer.classList.add('running');
   }
 }
 
-function triggerAlert() {
+async function triggerAlert() {
   const mode = activeModes[currentModeIndex];
   if (!mode) return;
 
+  const pulses = mode.id === 'RUN' ? [1000, 200, 1000, 200, 1000] : 
+                 (mode.id === 'CYCLE' ? [800, 200, 800] : [600]);
+
   // Haptic Alert
   if ("vibrate" in navigator) {
-    let pulses = [300];
-    if (mode.id === 'CYCLE') pulses = [200, 100, 200];
-    if (mode.id === 'RUN') pulses = [200, 100, 200, 100, 200];
     navigator.vibrate(pulses);
   }
 
-  // Sound Alert Fallback
+  // Sound Alert
   const beepCount = mode.id === 'RUN' ? 3 : (mode.id === 'CYCLE' ? 2 : 1);
   playBeep(beepCount);
   
@@ -112,21 +141,26 @@ function switchMode() {
   const mode = activeModes[currentModeIndex];
   totalTimeForMode = getDuration(mode);
   timeLeft = totalTimeForMode;
+  modeStartTime = Date.now();
   
   triggerAlert();
   updateUI();
 }
 
 function tick() {
-  if (timeLeft > 0) {
-    timeLeft--;
-    updateUI();
-  } else {
-    switchMode();
+  if (modeStartTime) {
+    const elapsed = Math.floor((Date.now() - modeStartTime) / 1000);
+    timeLeft = Math.max(0, totalTimeForMode - elapsed);
+    
+    if (timeLeft <= 0) {
+      switchMode();
+    } else {
+      updateUI();
+    }
   }
 }
 
-function startSession() {
+async function startSession() {
   if (timerState === 'READY' || timerState === 'PAUSED') {
     if (timerState === 'READY') {
       // Refresh active modes based on current inputs (skip 0)
@@ -141,7 +175,11 @@ function startSession() {
       const mode = activeModes[currentModeIndex];
       totalTimeForMode = getDuration(mode);
       timeLeft = totalTimeForMode;
+      modeStartTime = Date.now();
       triggerAlert();
+    } else if (timerState === 'PAUSED') {
+      // Adjust start time to account for remaining time
+      modeStartTime = Date.now() - (totalTimeForMode - timeLeft) * 1000;
     }
     
     timerState = 'RUNNING';
@@ -150,6 +188,7 @@ function startSession() {
     
     intervalId = setInterval(tick, 1000);
     requestWakeLock();
+    startKeepAlive();
     
     // Resume Audio Context on user gesture
     if (audioCtx && audioCtx.state === 'suspended') {
@@ -166,6 +205,7 @@ function stopSession() {
   startBtn.classList.remove('hidden');
   stopBtn.classList.add('hidden');
   releaseWakeLock();
+  stopKeepAlive();
 }
 
 function resetSession() {
@@ -174,10 +214,12 @@ function resetSession() {
   timeLeft = 0;
   totalTimeForMode = 0;
   currentModeIndex = 0;
+  modeStartTime = null;
   startBtn.querySelector('span').textContent = 'Start Training';
   startBtn.classList.remove('hidden');
   stopBtn.classList.add('hidden');
   releaseWakeLock();
+  stopKeepAlive();
   updateUI();
 }
 
@@ -200,9 +242,9 @@ timerUI.addEventListener('click', () => {
 pwaBtn.addEventListener('click', () => pwaModal.classList.remove('hidden'));
 closeModal.addEventListener('click', () => pwaModal.classList.add('hidden'));
 
-hapticCheckBtn.addEventListener('click', () => {
+hapticCheckBtn.addEventListener('click', async () => {
   if ("vibrate" in navigator) {
-    navigator.vibrate([200, 100, 200]);
+    navigator.vibrate([600, 200, 600]);
     console.log("Test vibration triggered");
   } else {
     alert("Vibration API not supported on this device/browser.");
