@@ -1,6 +1,6 @@
 import './style.css';
 
-const APP_VERSION = '1.1.0';
+const APP_VERSION = '1.1.1';
 
 // DOM Elements
 const timerDisplay = document.getElementById('timer');
@@ -67,7 +67,8 @@ function startKeepAlive() {
   if (keepAliveOsc) return;
   
   const silentGain = audioCtx.createGain();
-  silentGain.gain.setValueAtTime(0, audioCtx.currentTime);
+  // Near-zero gain to keep the audio pipeline truly active on mobile
+  silentGain.gain.setValueAtTime(0.001, audioCtx.currentTime); 
   const osc = audioCtx.createOscillator();
   osc.connect(silentGain);
   silentGain.connect(audioCtx.destination);
@@ -122,9 +123,26 @@ async function triggerAlert() {
   const pulses = mode.id === 'RUN' ? [1000, 200, 1000, 200, 1000] : 
                  (mode.id === 'CYCLE' ? [800, 200, 800] : [600]);
 
-  // Haptic Alert
+  // Haptic Alert (Foreground)
   if ("vibrate" in navigator) {
     navigator.vibrate(pulses);
+  }
+
+  // Silent Notification Alert (Target for Locked Screen)
+  // This uses 'silent: true' to avoid interrupting music/podcasts
+  if ('serviceWorker' in navigator && Notification.permission === 'granted') {
+    try {
+      const registration = await navigator.serviceWorker.ready;
+      registration.showNotification(`Stryde: ${mode.label}`, {
+        body: `Transition to ${mode.label.toLowerCase()}`,
+        vibrate: pulses,
+        silent: true,
+        tag: 'stryde-tick',
+        renotify: true
+      });
+    } catch (e) {
+      console.warn("Notification vibration failed", e);
+    }
   }
 
   // Sound Alert
@@ -162,6 +180,11 @@ function tick() {
 
 async function startSession() {
   if (timerState === 'READY' || timerState === 'PAUSED') {
+    // Attempt to get notification permission for locked-screen haptics
+    if (Notification.permission === 'default') {
+      await Notification.requestPermission();
+    }
+
     if (timerState === 'READY') {
       // Refresh active modes based on current inputs (skip 0)
       activeModes = MODES_CONFIG.filter(m => getDuration(m) > 0);

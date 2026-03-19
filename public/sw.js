@@ -1,4 +1,4 @@
-const CACHE_NAME = 'stryde-v4';
+const CACHE_NAME = 'stryde-v5';
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
